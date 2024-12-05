@@ -51,7 +51,60 @@ def delete_all_data():
     except Exception as e:
         print(f"An error occurred: {e}")
         
-
+@app.route('/download/youtube', methods=['POST'])
+def download_youtube_video():
+    try:
+        data = request.json
+        url = data.get('url')
+        if not url:
+            return jsonify({"error": "URL is required"}), 400
+ 
+        yt = YouTube(url)
+        stream = yt.streams.filter(progressive=True, file_extension='mp4').first()
+ 
+        if not stream:
+            return jsonify({"error": "No valid stream found"}), 400
+ 
+        # Download the video to memory
+        file_buffer = BytesIO()
+        stream.stream_to_buffer(file_buffer)
+        file_buffer.seek(0)
+ 
+        return send_file(file_buffer, as_attachment=True, download_name=f"{yt.title}.mp4", mimetype='video/mp4')
+ 
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+ 
+ 
+@app.route('/download/instagram', methods=['POST'])
+def download_instagram_video():
+    try:
+        data = request.json
+        url = data.get('url')
+        if not url:
+            return jsonify({"error": "URL is required"}), 400
+ 
+        loader = instaloader.Instaloader()
+        shortcode = url.split("/")[-2]
+ 
+        # Download the Instagram post to memory
+        post = instaloader.Post.from_shortcode(loader.context, shortcode)
+        if not post.is_video:
+            return jsonify({"error": "The provided link is not a video"}), 400
+ 
+        file_buffer = BytesIO()
+        loader.download_post(post, target=None)
+        downloaded_file_path = loader.dirname_pattern  # Use in-memory storage
+ 
+        # Read the file into a buffer
+        with open(downloaded_file_path, 'rb') as f:
+            file_buffer.write(f.read())
+        file_buffer.seek(0)
+ 
+        return send_file(file_buffer, as_attachment=True, download_name=f"{shortcode}.mp4", mimetype='video/mp4')
+ 
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/get-password', methods=['POST'])
 def get_password():
